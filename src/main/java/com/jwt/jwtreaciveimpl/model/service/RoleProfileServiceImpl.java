@@ -1,4 +1,4 @@
-package com.jwt.jwtreaciveimpl.service;
+package com.jwt.jwtreaciveimpl.model.service;
 
 import com.jwt.jwtreaciveimpl.model.User;
 import com.jwt.jwtreaciveimpl.model.rbac.Profile;
@@ -13,8 +13,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import javax.management.relation.Role;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,91 +28,103 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     private final RolesInProfileRepository rolesInProfileRepository;
     private final UserRepository userRepository;
     @Override
-    public UniversalResponse addProfile(Profile_data profile) {
-        List<Profile> profileNameExists = profilesRepository.findByNameIgnoreCase(profile.name());
-        if (profileNameExists.size()>0)
-           return  UniversalResponse.builder().status(400).message("Profile with the given name already exist").build();
-        Profile profiles = Profile.builder()
-                .isActive(true)
-                .name(profile.name())
-                .remarks(profile.remarks())
-                .build();
-        profilesRepository.save(profiles);
-        return  UniversalResponse.builder()
-                .status(200)
-                .message("profile added successfully")
-                .data(profile.name()).build();
+    public Mono<UniversalResponse>  addProfile(ProfileData profile) {
+        return Mono.fromCallable(()-> {
+            List<Profile> profileNameExists = profilesRepository.findByNameIgnoreCase(profile.name());
+            if (profileNameExists.size()>0)
+                return  UniversalResponse.builder().status(400).message("Profile with the given name already exist").build();
+            Profile profiles = Profile.builder()
+                    .isActive(true)
+                    .name(profile.name())
+                    .remarks(profile.remarks())
+                    .build();
+            profilesRepository.save(profiles);
+            return  UniversalResponse.builder()
+                    .status(200)
+                    .message("profile added successfully")
+                    .data(profile.name()).build();
+        }).publishOn(Schedulers.boundedElastic());
+
     }
 
     @Override
-    public UniversalResponse addRole(Role_data roles) {
-       List<Roles> rolesList = rolesRepository.findByNameIgnoreCase(roles.name());
-        if (rolesList.size()>0)
-            return  UniversalResponse.builder().status(400).message("Role name exists").build();
+    public Mono<UniversalResponse> addRole(RoleData roles) {
+        return Mono.fromCallable(() -> {
+            List<Roles> rolesList = rolesRepository.findByNameIgnoreCase(roles.name());
+            if (rolesList.size()>0)
+                return  UniversalResponse.builder().status(400).message("Role name exists").build();
 
-        Roles role = Roles.builder()
-                .isSystemRole(false)
-                .remarks(roles.remarks())
-                .isActive(false)
-                .name(roles.name())
-                .build();
-        rolesRepository.save(role);
-        return  UniversalResponse.builder().status(200)
-                .message("Role added successfully")
-                .data(role.getName())
-                .build();
+            Roles role = Roles.builder()
+                    .isSystemRole(false)
+                    .remarks(roles.remarks())
+                    .isActive(false)
+                    .name(roles.name())
+                    .build();
+            rolesRepository.save(role);
+            return  UniversalResponse.builder().status(200)
+                    .message("Role added successfully")
+                    .data(role.getName())
+                    .build();
+        }).publishOn(Schedulers.boundedElastic());
+
     }
 
     @Override
-    public UniversalResponse addRolesInProfile(RolesInProfile_data rolesInProfileWrapper) {
-        Optional<Profile> optionalProfiles = profilesRepository.findById(rolesInProfileWrapper.profileId());
-        if (!optionalProfiles.isPresent()) {
-            return  UniversalResponse.builder().status(400).message("Profile with that id not found.").build();
-        }
-        List<Long> longList = rolesInProfileWrapper.roleIds();
-        List<Long> availableRoleIds = new ArrayList<>();
-        List<Long> nonAvailableRoleIds = new ArrayList<>();
-        StringJoiner stringJoiner = new StringJoiner(",", "[", "]");
-        longList.forEach(roleId -> {
-            Optional<Roles> optionalRoles = rolesRepository.findById(roleId);
-            if (optionalRoles.isPresent()) {
-                availableRoleIds.add(roleId);
-            } else {
-                stringJoiner.add(String.valueOf(roleId));
-                nonAvailableRoleIds.add(roleId);
+    public Mono<UniversalResponse>  addRolesInProfile(RolesInProfile_data rolesInProfileWrapper) {
+        return Mono.fromCallable(()-> {
+            Optional<Profile> optionalProfiles = profilesRepository.findById(rolesInProfileWrapper.profileId());
+            if (!optionalProfiles.isPresent()) {
+                return  UniversalResponse.builder().status(400).message("Profile with that id not found.").build();
             }
-        });
-        availableRoleIds.forEach(roleId -> {
-            Optional<RolesInProfiles> roleIdAndProfileId = rolesInProfileRepository.findAllByRoleIdAndProfileId(roleId, rolesInProfileWrapper.profileId());
+            List<Long> longList = rolesInProfileWrapper.roleIds();
+            List<Long> availableRoleIds = new ArrayList<>();
+            List<Long> nonAvailableRoleIds = new ArrayList<>();
+            StringJoiner stringJoiner = new StringJoiner(",", "[", "]");
+            longList.forEach(roleId -> {
+                Optional<Roles> optionalRoles = rolesRepository.findById(roleId);
+                if (optionalRoles.isPresent()) {
+                    availableRoleIds.add(roleId);
+                } else {
+                    stringJoiner.add(String.valueOf(roleId));
+                    nonAvailableRoleIds.add(roleId);
+                }
+            });
+            availableRoleIds.forEach(roleId -> {
+                Optional<RolesInProfiles> roleIdAndProfileId = rolesInProfileRepository.findAllByRoleIdAndProfileId(roleId, rolesInProfileWrapper.profileId());
 
-            RolesInProfiles rolesInProfiles;
-            if (roleIdAndProfileId.isPresent()) {
-                rolesInProfiles = roleIdAndProfileId.get();
+                RolesInProfiles rolesInProfiles;
+                if (roleIdAndProfileId.isPresent()) {
+                    rolesInProfiles = roleIdAndProfileId.get();
+                } else {
+                    rolesInProfiles = new RolesInProfiles();
+                    rolesInProfiles.setProfileId(rolesInProfileWrapper.profileId());
+                    rolesInProfiles.setRoleId(roleId);
+                }
+                rolesInProfiles.setIsActive(true);
+                rolesInProfileRepository.save(rolesInProfiles);
+            });
+            if (!nonAvailableRoleIds.isEmpty()) {
+                return  UniversalResponse.builder().status(404).message("Following roles ids " + stringJoiner + " not added because they are not found.").build();
             } else {
-                rolesInProfiles = new RolesInProfiles();
-                rolesInProfiles.setProfileId(rolesInProfileWrapper.profileId());
-                rolesInProfiles.setRoleId(roleId);
+                return  UniversalResponse.builder().status(200).message("Role added to profile").build();
             }
-            rolesInProfiles.setIsActive(true);
-            rolesInProfileRepository.save(rolesInProfiles);
-        });
-        if (!nonAvailableRoleIds.isEmpty()) {
-            return  UniversalResponse.builder().status(404).message("Following roles ids " + stringJoiner + " not added because they are not found.").build();
-        } else {
-            return  UniversalResponse.builder().status(200).message("Role added to profile").build();
-        }
+        }).publishOn(Schedulers.boundedElastic());
+
     }
 
     @Override
-    public UniversalResponse getProfiles(Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-        Page<Profile> profilesPage = profilesRepository.findAllByIsActiveTrue(pageable);
+    public Mono<UniversalResponse>  getProfiles(Integer page, Integer size) {
+        return Mono.fromCallable(()-> {
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
+            Page<Profile> profilesPage = profilesRepository.findAllByIsActiveTrue(pageable);
 
-        return new UniversalResponse(200, "Profiles retrieved successfully", profilesPage);
+            return new UniversalResponse(200, "Profiles retrieved successfully", profilesPage);
+        }).publishOn(Schedulers.boundedElastic());
+
     }
 
     @Override
-    public UniversalResponse getRolesInProfiles(Long profileId) {
+    public Mono<UniversalResponse>  getRolesInProfiles(Long profileId) {
         Optional<Profile> optionalProfiles = profilesRepository.findById(profileId);
         if (!optionalProfiles.isPresent()) {
             return  UniversalResponse.builder().status(404).message("No profile with such id").build();
@@ -133,7 +146,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse getRoles(Integer page, Integer size) {
+    public Mono<UniversalResponse>  getRoles(Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
         Page<Roles> rolesPage = rolesRepository.findAllByIsActiveTrue(pageable);
         return new UniversalResponse(200, "Roles retrieved successfully", rolesPage);
@@ -142,7 +155,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
 
 
     @Override
-    public UniversalResponse activateDeactivateProfile(Long profileId, boolean activated) {
+    public Mono<UniversalResponse>  activateDeactivateProfile(Long profileId, boolean activated) {
         Optional<Profile> profilesOptional = profilesRepository.findById(profileId);
         if (!profilesOptional.isPresent())
             return  UniversalResponse.builder().status(404).message("No such profile").build();
@@ -155,7 +168,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse editProfile(Profile_data profilesWrapper) {
+    public Mono<UniversalResponse>  editProfile(ProfileData profilesWrapper) {
         Optional<Profile> profilesOptional = profilesRepository.findById(profilesWrapper.id());
         if (!profilesOptional.isPresent())
            return  UniversalResponse.builder().status(404).message("No such profile").build();
@@ -171,7 +184,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse activateDeactivateRole(Long roleId, boolean activated) {
+    public Mono<UniversalResponse>  activateDeactivateRole(Long roleId, boolean activated) {
         Optional<Roles> optionalRoles = rolesRepository.findById(roleId);
 
         if (!optionalRoles.isPresent()) {
@@ -187,7 +200,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse editRole(Role_data rolesWrapper) {
+    public Mono<UniversalResponse>  editRole(RoleData rolesWrapper) {
         Optional<Roles> optionalRoles = rolesRepository.findById(rolesWrapper.roleId());
 
         if (!optionalRoles.isPresent()) {
@@ -206,7 +219,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse removeRoleInProfile(RolesInProfile_data rolesInProfileWrapper) {
+    public Mono<UniversalResponse>  removeRoleInProfile(RolesInProfile_data rolesInProfileWrapper) {
         List<Long> roleIds = rolesInProfileWrapper.roleIds();
         List<RolesInProfiles> rolesInProfilesList = new ArrayList<>();
         List<Long> nonAvailableIds = new ArrayList<>();
@@ -236,7 +249,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse addProfileUser(ProfileUserWrapper profileUserWrapper) {
+    public Mono<UniversalResponse>  addProfileUser(ProfileUserWrapper profileUserWrapper) {
         Optional<UsersProfile> andProfileId = usersProfilesRepository.findByUserEmailAndProfileId(profileUserWrapper.userEmail(), profileUserWrapper.profileId());
         if (andProfileId.isPresent()) {
             UsersProfile usersProfile = andProfileId.get();
@@ -258,7 +271,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse getUserRoles(String currentUser) {
+    public Mono<UniversalResponse>  getUserRoles(String currentUser) {
         Optional<List<UsersProfile>> userProfileOptional = usersProfilesRepository.findByUserEmailAndIsActiveTrue(currentUser);
         List<Roles> rolesList = new ArrayList<>();
 
@@ -294,7 +307,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse removeUserProfile(ProfileUserWrapper profileUserWrapper) {
+    public Mono<UniversalResponse>  removeUserProfile(ProfileUserWrapper profileUserWrapper) {
         Optional<UsersProfile> optionalUsersProfile = usersProfilesRepository.findByUserEmailAndProfileId(profileUserWrapper.userEmail(), profileUserWrapper.profileId());
         if (!optionalUsersProfile.isPresent()) {
             return  UniversalResponse.builder().status(200).message("user profile not found").build();
@@ -307,7 +320,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse usersByProfile(Long profileId) {
+    public Mono<UniversalResponse> usersByProfile(Long profileId) {
         Optional<List<UsersProfile>> allByProfileId = usersProfilesRepository.findAllByProfileIdAndIsActiveTrue(profileId);
 
         if (!allByProfileId.isPresent())
@@ -325,7 +338,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse userProfiles(String currentUser) {
+    public Mono<UniversalResponse>  userProfiles(String currentUser) {
         Optional<List<UsersProfile>> usersProfiles = usersProfilesRepository.findByUserEmailAndIsActiveTrue(currentUser);
         if (!usersProfiles.isPresent()) {
             return  UniversalResponse.builder().status(404).message("user not assigned any profile yet").build();
@@ -348,7 +361,7 @@ public class RoleProfileServiceImpl implements RoleProfileService {
     }
 
     @Override
-    public UniversalResponse addUsersToProfile(ProfileUserWrapper profileUserWrapper) {
+    public Mono<UniversalResponse>  addUsersToProfile(ProfileUserWrapper profileUserWrapper) {
         Optional<Profile> optionalProfiles = profilesRepository.findById(profileUserWrapper.profileId());
         if (!optionalProfiles.isPresent())
             return  UniversalResponse.builder().status(404).message("profile with that id not found").build();

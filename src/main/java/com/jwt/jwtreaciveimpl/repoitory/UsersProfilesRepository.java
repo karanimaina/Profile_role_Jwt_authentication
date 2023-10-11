@@ -1,7 +1,6 @@
-package com.eclectics.esb.esb_user_management.rbac.dao.repo;
+package com.jwt.jwtreaciveimpl.repoitory;
 
-import com.eclectics.esb.esb_user_management.rbac.dao.entity.Profiles;
-import com.eclectics.esb.esb_user_management.rbac.dao.entity.UsersProfile;
+import com.jwt.jwtreaciveimpl.model.rbac.UsersProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -1,2 +1,4 @@
-package com.jwt.jwtreaciveimpl.model;public class User {
+package com.jwt.jwtreaciveimpl.model;
+
+public class User {
 }

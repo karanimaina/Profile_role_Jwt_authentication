@@ -1,14 +1,15 @@
-package com.eclectics.esb.esb_user_management.rbac.dao.repo;
+package com.jwt.jwtreaciveimpl.repoitory;
 
 
-import com.eclectics.esb.esb_user_management.rbac.dao.entity.Profiles;
+import com.jwt.jwtreaciveimpl.model.rbac.Profile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+
 import java.util.List;
 
-public interface ProfilesRepository extends JpaRepository<Profiles,Long> {
+public interface ProfilesRepository extends JpaRepository<Profile,Long> {
 
-    Page<Profiles> findAllByIsActiveTrue(Pageable pageable);
-    List<Profiles> findByNameIgnoreCase(String name);
+    Page<Profile> findAllByIsActiveTrue(Pageable pageable);
+    List<Profile> findByNameIgnoreCase(String name);
 }

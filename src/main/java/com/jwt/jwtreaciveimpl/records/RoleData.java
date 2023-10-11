@@ -4,4 +4,4 @@ public record RoleData ( Long roleId,
          String name,
          String remarks,
          Boolean isActive){
-}D
+}

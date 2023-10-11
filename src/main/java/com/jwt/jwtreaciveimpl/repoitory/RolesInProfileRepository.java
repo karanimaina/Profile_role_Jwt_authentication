@@ -1,6 +1,6 @@
-package com.eclectics.esb.esb_user_management.rbac.dao.repo;
+package com.jwt.jwtreaciveimpl.repoitory;
 
-import com.eclectics.esb.esb_user_management.rbac.dao.entity.RolesInProfiles;
+import com.jwt.jwtreaciveimpl.model.rbac.RolesInProfiles;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,5 +20,5 @@ public interface RolesInProfileRepository extends JpaRepository<RolesInProfiles,
     @Query("SELECT rolesInProfile from RolesInProfiles rolesInProfile WHERE rolesInProfile.roleId=:roleId AND rolesInProfile.isActive = true")
     List<RolesInProfiles> findAllByRoles(@Param("roleId") Long roleId);
 
-    Optional<RolesInProfiles> findAllByRoleIdAndProfileId(Long roleId,Long profileId);
+    Optional<RolesInProfiles> findAllByRoleIdAndProfileId(Long roleId, Long profileId);
 }

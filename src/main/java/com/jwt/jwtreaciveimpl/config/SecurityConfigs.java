@@ -4,21 +4,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
+import org.springframework.security.authentication.UserDetailsRepositoryReactiveAuthenticationManager;
+import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
-import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.WebFilter;
-import org.springframework.web.server.WebFilterChain;
-import reactor.core.publisher.Mono;
 
 @RequiredArgsConstructor
-public class SecurityConfigs implements WebFilter {
+@EnableWebFluxSecurity
+public class SecurityConfigs  {
     @Bean
     SecurityWebFilterChain springWebFilterChain(ServerHttpSecurity http,
-                                                JwtTokenProvider tokenProvider,
-                                                ReactiveAuthenticationManager reactiveAuthenticationManager) {
+                                                JwtTokenProvider tokenProvider, ReactiveAuthenticationManager reactiveAuthenticationManager) {
         final String PATH_POSTS="/posts/**";
 
         return http.csrf(ServerHttpSecurity.CsrfSpec::disable)
@@ -36,8 +36,11 @@ public class SecurityConfigs implements WebFilter {
                 .build();
     }
 
-    @Override
-    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        return null;
+    @Bean
+    public ReactiveAuthenticationManager reactiveAuthenticationManager(ReactiveUserDetailsService userDetailsService,
+                                                                       PasswordEncoder passwordEncoder) {
+        var authenticationManager = new UserDetailsRepositoryReactiveAuthenticationManager(userDetailsService);
+        authenticationManager.setPasswordEncoder(passwordEncoder);
+        return authenticationManager;
     }
 }
