@@ -36,7 +36,7 @@ public interface RoleProfileService {
 
     Mono<UniversalResponse>  usersByProfile(Long profileId);
 
-    Mono<UniversalResponse>  userProfiles(String currentUser);
+    Mono<UniversalResponse> userProfiles(String currentUser);
 
     Mono<UniversalResponse>  addUsersToProfile(ProfileUserWrapper profileUserWrapper);
 }
